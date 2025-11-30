@@ -1,8 +1,14 @@
+// SPDX-License-Identifier: BSD-3-Clause
+//
 // Self-contained program that will stop a program from making any outgoing
 // network connections. It will one one single TCP port so it can still
 // take *incoming* connections.
 //
 // It's like reverse firewall.
+//
+// This is based off a sample here: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/samples/landlock/sandboxer.c
+//
+// This is more or less just a simplified version of that.
 //
 // (c) 2025 Mikko Juola
 //
