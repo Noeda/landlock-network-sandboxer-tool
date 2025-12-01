@@ -60,6 +60,8 @@ static inline int landlock_restrict_self(
 #endif
 
 int main(int argc, char** argv, char *const *const envp) {
+    // Landlock seems to check for this, so at some point you have to set
+    // "no new privileges".
     if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)) {
         perror("Failed to restrict privileges, prctl(PR_SET_NO_NEW_PRIVS, ...)");
         exit(1);
@@ -81,6 +83,10 @@ int main(int argc, char** argv, char *const *const envp) {
             exit(1);
         }
     }
+
+    // If you set port 0 to be whitelisted, then binding to port 0 is
+    // allowed. This (IIRC) results in a random port being opened (and it
+    // is allowed by landlock).
     char* endport = 0;
     errno = 0;
     long port = strtol(argv[1], &endport, 10);
@@ -129,7 +135,7 @@ int main(int argc, char** argv, char *const *const envp) {
         LANDLOCK_ACCESS_NET_BIND_TCP |
         LANDLOCK_ACCESS_NET_CONNECT_TCP;
 
-    // logging
+    // logging (I think this goes to dmesg?)
     // ABI 7
     int restrict_flags = LANDLOCK_RESTRICT_SELF_LOG_NEW_EXEC_ON;
 
@@ -152,8 +158,13 @@ int main(int argc, char** argv, char *const *const envp) {
         perror("Failed to create a landlock ruleset with landlock_create_ruleset");
         exit(1);
     }
+
     // This tool only is concerned about network, so allow everything for
     // now.
+    //
+    // I did not check if doing this is necessary if we just want to
+    // restrict network. I.e. could we just remove all the handled fs
+    // access and say we only handle the network access?
     int root_fd = open("/", O_PATH | O_CLOEXEC);
     if (root_fd == -1) {
         fprintf(stderr, "network-sandboxer-tool: cannot open / for privilege settings.\n");
@@ -173,7 +184,7 @@ int main(int argc, char** argv, char *const *const envp) {
     // And deny. By not adding rules.
     struct landlock_net_port_attr port_bind = {0};
     port_bind.port = port;
-    port_bind.allowed_access = LANDLOCK_ACCESS_NET_BIND_TCP | LANDLOCK_ACCESS_NET_CONNECT_TCP;
+    port_bind.allowed_access = LANDLOCK_ACCESS_NET_BIND_TCP;
     if (landlock_add_rule(ruleset_fd, LANDLOCK_RULE_NET_PORT, &port_bind, 0)) {
         perror("Failed to add a network rule with landlock_add_rule.\n");
         exit(1);
